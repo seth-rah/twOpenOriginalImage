@@ -10,6 +10,7 @@ if ( chrome.runtime.lastError ) {
 
 var SCRIPT_NAME = 'twOpenOriginalImage';
 
+var current_url = location.href;
 
 function get_bool( value ) {
     if ( value === undefined ) {
@@ -39,6 +40,32 @@ function get_text( value ) {
     }
     return String( value );
 } // end of get_text()
+
+
+function send_content_scripts_info() {
+    // content_scripts の情報を渡す
+    chrome.runtime.sendMessage( {
+        type : 'NOTIFICATION_ONLOAD',
+        info : {
+            url : location.href,
+        }
+    }, function ( response ) {
+        console.debug( 'send_content_scripts_info() response:', response );
+        /*
+        //window.addEventListener( 'beforeunload', function ( event ) {
+        //    // TODO: メッセージが送信できないケース有り ("Uncaught TypeError: Cannot read property 'sendMessage' of undefined")
+        //    chrome.runtime.sendMessage( {
+        //        type : 'NOTIFICATION_ONUNLOAD',
+        //        info : {
+        //            url : location.href,
+        //            event : 'onbeforeunload',
+        //        }
+        //    }, function ( response ) {
+        //    } );
+        //} );
+        */
+    } );
+} // end of send_content_scripts_info()
 
 
 function get_init_function( message_type, option_name_to_function_map, namespace ) {
@@ -76,6 +103,12 @@ function get_init_function( message_type, option_name_to_function_map, namespace
             var options = analyze_response( response );
             callback( options );
         } );
+        
+        new MutationObserver( ( records ) => {
+            if ( current_url == location.href ) return;
+            current_url = location.href;
+            send_content_scripts_info();
+        } ).observe( d.body, { childList : true, subtree : true } );
     }
     
     return init;
@@ -247,28 +280,6 @@ chrome.runtime.onMessage.addListener( function ( message, sender, sendResponse )
     return true;
 } );
 
-// content_scripts の情報を渡す
-chrome.runtime.sendMessage( {
-    type : 'NOTIFICATION_ONLOAD',
-    info : {
-        url : location.href,
-    }
-}, function ( response ) {
-    /*
-    //window.addEventListener( 'beforeunload', function ( event ) {
-    //    // TODO: メッセージが送信できないケース有り ("Uncaught TypeError: Cannot read property 'sendMessage' of undefined")
-    //    chrome.runtime.sendMessage( {
-    //        type : 'NOTIFICATION_ONUNLOAD',
-    //        info : {
-    //            url : location.href,
-    //            event : 'onbeforeunload',
-    //        }
-    //    }, function ( response ) {
-    //    } );
-    //} );
-    */
-} );
-
 if ( /^https?:\/\/pbs\.twimg\.com\/media\//.test( location.href ) ) {
     // 複数画像を一度に開いたときにタブを並び替え
     extension_functions.request_tab_sorting();
@@ -276,6 +287,8 @@ if ( /^https?:\/\/pbs\.twimg\.com\/media\//.test( location.href ) ) {
 
 w.twOpenOriginalImage_chrome_init = twOpenOriginalImage_chrome_init;
 w.extension_functions = extension_functions;
+
+send_content_scripts_info();
 
 } )( window, document );
 

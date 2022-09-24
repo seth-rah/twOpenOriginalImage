@@ -1,5 +1,5 @@
 {
-    "manifest_version" : 3
+    "manifest_version" : 2
 ,   "name" : "__MSG_ext_title__"
 ,   "short_name" : "__MSG_ext_short_name__"
 ,   "version" : "0.1.8.2101"
@@ -26,20 +26,17 @@
         ,   "all_frames" : true
         }
     ]
-,   "permissions" : [ "contextMenus", "downloads", "storage" ]
+,   "permissions" : [ "contextMenus", "downloads", "storage", "*://pbs.twimg.com/media/*" ]
 ,   "background"  : {
-        "service_worker" : "js/background.js"
+        "scripts" : [ "js/background.js" ]
+    ,   "persistent" : false
     }
 ,   "options_ui" : {
-        "page" : "html/options.html",
-        "open_in_tab" : false
+        "page" : "html/options.html"
     }
-,   "action" : {
+,   "browser_action" : {
         "default_icon" : "img/icon_48.png"
     ,   "default_title" : "__MSG_ext_title__"
     ,   "default_popup" : "html/options.html"
     }
-,   "host_permissions" : [
-        "*://pbs.twimg.com/media/*"
-    ]
 }

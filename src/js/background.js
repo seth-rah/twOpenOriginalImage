@@ -5,15 +5,26 @@
 w.chrome = ( ( typeof browser != 'undefined' ) && browser.runtime ) ? browser : chrome;
 
 
+const
+    // TODO: デフォルト値の定義箇所が3箇所(options.js, background.js, twOpenOriginalImage.user.js)あり、すべて合わせておく必要がある
+    DEFAULT_VALUES = {
+        DOWNLOAD_HELPER_SCRIPT_IS_VALID : true,
+        OPERATION : true,
+        SUPPRESS_FILENAME_SUFFIX : false,
+        SAME_FILENAME_AS_IN_ZIP : true,
+    };
+
+
 var DEBUG = false,
     
     SCRIPT_NAME = 'twOpenOriginalImage',
     
     CONTEXT_MENU_INITIALIZED = false,
+    
     CONTEXT_MENU_IS_VISIBLE = true,
     CONTEXT_MENU_IS_SUSPENDED = false,
-    SUPPRESS_FILENAME_SUFFIX = false,
-    SAME_FILENAME_AS_IN_ZIP = true,
+    SUPPRESS_FILENAME_SUFFIX = DEFAULT_VALUES.SUPPRESS_FILENAME_SUFFIX,
+    SAME_FILENAME_AS_IN_ZIP = DEFAULT_VALUES.SAME_FILENAME_AS_IN_ZIP,
     
     DOWNLOAD_MENU_ID = 'download_image',
     
@@ -96,9 +107,9 @@ function is_twitter_page( url ) {
 } // end of is_twitter_page()
 
 
-function get_bool( value ) {
+function get_bool( value, default_value = null ) {
     if ( value === undefined ) {
-        return null;
+        return default_value;
     }
     if ( ( value === '0' ) || ( value === 0 ) || ( value === false ) || ( value === 'false' ) ) {
         return false;
@@ -106,21 +117,99 @@ function get_bool( value ) {
     if ( ( value === '1' ) || ( value === 1 ) || ( value === true ) || ( value === 'true' ) ) {
         return true;
     }
-    return null;
+    return default_value;
 } // end of get_bool()
 
 
-function update_context_menu_flags() {
-    var is_valid = ( get_bool( localStorage[ 'DOWNLOAD_HELPER_SCRIPT_IS_VALID' ] ) !== false ) ? true : false,
-        operation = ( get_bool( localStorage[ 'OPERATION' ] ) !== false ) ? true : false;
+function set_values( name_value_map, callback = null ) {
+    return new Promise( function ( resolve, reject ) {
+        chrome.storage.local.set( name_value_map, function () {
+            if ( typeof callback == 'function' ) {
+                callback();
+            }
+            resolve();
+        } );
+    } );
+} // end of set_values()
+
+
+function get_values( name_list, callback = null ) {
+    return new Promise( function ( resolve, reject ) {
+        if ( typeof name_list == 'string' ) {
+            name_list = [ name_list ];
+        }
+        
+        chrome.storage.local.get( name_list, function ( name_value_map ) {
+            /*
+            //name_list.forEach( function ( name ) {
+            //    log_debug( 'name:', name, 'value:', name_value_map[ name ] );
+            //    if ( name_value_map[ name ] === undefined ) {
+            //        name_value_map[ name ] = null;
+            //    }
+            //} );
+            */
+            
+            if ( typeof callback == 'function' ) {
+                callback( name_value_map );
+            }
+            resolve( name_value_map );
+        } );
+    } );
+} // end of get_values()
+
+
+async function get_value( key ) {
+    var items = await get_values( [ key ] );
+    return items[ key ];
+} // end of get_value()
+
+
+function set_value( key, value ) {
+    return new Promise( function ( resolve, reject ) {
+        chrome.storage.local.set( {
+            [ key ] : value
+        }, function () {
+            resolve();
+        } );
+    } );
+} // end of set_value()
+
+
+function remove_values( key_list ) {
+    return new Promise( function ( resolve, reject ) {
+        chrome.storage.local.remove( key_list, function () {
+            resolve();
+        } );
+    } );
+} // end of remove_values()
+
+
+/*
+//function update_context_menu_flags() {
+//    var is_valid = ( get_bool( localStorage[ 'DOWNLOAD_HELPER_SCRIPT_IS_VALID' ] ) !== false ) ? true : false,
+//        operation = ( get_bool( localStorage[ 'OPERATION' ] ) !== false ) ? true : false;
+//    
+//    CONTEXT_MENU_IS_VISIBLE = is_valid;
+//    CONTEXT_MENU_IS_SUSPENDED = ! operation;
+//    
+//    log_debug( 'CONTEXT_MENU_IS_VISIBLE:', CONTEXT_MENU_IS_VISIBLE, 'CONTEXT_MENU_IS_SUSPENDED:', CONTEXT_MENU_IS_SUSPENDED );
+//    
+//    SUPPRESS_FILENAME_SUFFIX = ( get_bool( localStorage[ 'SUPPRESS_FILENAME_SUFFIX' ] ) === true ) ? true : false;
+//    SAME_FILENAME_AS_IN_ZIP = ( get_bool( localStorage[ 'SAME_FILENAME_AS_IN_ZIP' ] ) !== false ) ? true : false;
+//} // end of update_context_menu_flags()
+*/
+
+async function update_context_menu_flags() {
+    var is_valid = get_bool( await get_value( 'DOWNLOAD_HELPER_SCRIPT_IS_VALID' ), DEFAULT_VALUES.DOWNLOAD_HELPER_SCRIPT_IS_VALID ),
+        operation = get_bool( await get_value( 'OPERATION' ), DEFAULT_VALUES.OPERATION );
     
     CONTEXT_MENU_IS_VISIBLE = is_valid;
     CONTEXT_MENU_IS_SUSPENDED = ! operation;
     
     log_debug( 'CONTEXT_MENU_IS_VISIBLE:', CONTEXT_MENU_IS_VISIBLE, 'CONTEXT_MENU_IS_SUSPENDED:', CONTEXT_MENU_IS_SUSPENDED );
     
-    SUPPRESS_FILENAME_SUFFIX = ( get_bool( localStorage[ 'SUPPRESS_FILENAME_SUFFIX' ] ) === true ) ? true : false;
-    SAME_FILENAME_AS_IN_ZIP = ( get_bool( localStorage[ 'SAME_FILENAME_AS_IN_ZIP' ] ) !== false ) ? true : false;
+    SUPPRESS_FILENAME_SUFFIX = get_bool( await get_value( 'SUPPRESS_FILENAME_SUFFIX' ), DEFAULT_VALUES.SUPPRESS_FILENAME_SUFFIX );
+    SAME_FILENAME_AS_IN_ZIP = get_bool( await get_value( 'SAME_FILENAME_AS_IN_ZIP' ), DEFAULT_VALUES.SAME_FILENAME_AS_IN_ZIP );
 } // end of update_context_menu_flags()
 
 
@@ -215,39 +304,6 @@ function get_extension_from_image_url( img_url ) {
     return ext;
 } // end of get_extension_from_image_url()
 
-
-function set_values( name_value_map, callback ) {
-    return new Promise( function ( resolve, reject ) {
-        chrome.storage.local.set( name_value_map, function () {
-            if ( typeof callback == 'function' ) {
-                callback();
-            }
-            resolve();
-        } );
-    } );
-} // end of set_values()
-
-
-function get_values( name_list, callback ) {
-    return new Promise( function ( resolve, reject ) {
-        if ( typeof name_list == 'string' ) {
-            name_list = [ name_list ];
-        }
-        
-        chrome.storage.local.get( name_list, function ( name_value_map ) {
-            name_list.forEach( function ( name ) {
-                if ( name_value_map[ name ] === undefined ) {
-                    name_value_map[ name ] = null;
-                }
-            } );
-            
-            if ( typeof callback == 'function' ) {
-                callback( name_value_map );
-            }
-            resolve( name_value_map );
-        } );
-    } );
-} // end of get_values()
 
 /*
 //function reload_tabs() {
@@ -444,25 +500,28 @@ function download_image( info, tab ) {
 
 
 function on_determining_filename( downloadItem, suggest ) {
-    update_context_menu_flags();
-    
-    if ( ( ! CONTEXT_MENU_IS_VISIBLE ) || CONTEXT_MENU_IS_SUSPENDED ) {
+    update_context_menu_flags()
+    .then( () => {
+        
+        if ( ( ! CONTEXT_MENU_IS_VISIBLE ) || CONTEXT_MENU_IS_SUSPENDED ) {
+            return true;
+        }
+        if ( downloadItem.byExtensionId != chrome.runtime.id ) {
+            // 本拡張機能以外から保存した場合は無視
+            // ※この判定を無効化すれば、コンテキストメニューから「名前を付けて画像を保存」した場合も、http://～/xxx.jpg:kind → xxx-kind.jpg に変換される
+            return true;
+        }
+        
+        var url = downloadItem.finalUrl || downloadItem.url;
+        
+        if ( ! /^https?:\/\/pbs\.twimg\.com\/media\/[^:]+:\w*$/.test( url ) ) {
+            return true;
+        }
+        
+        suggest( {
+            filename : get_filename_from_image_url( url )
+        } );
         return true;
-    }
-    if ( downloadItem.byExtensionId != chrome.runtime.id ) {
-        // 本拡張機能以外から保存した場合は無視
-        // ※この判定を無効化すれば、コンテキストメニューから「名前を付けて画像を保存」した場合も、http://～/xxx.jpg:kind → xxx-kind.jpg に変換される
-        return true;
-    }
-    
-    var url = downloadItem.finalUrl || downloadItem.url;
-    
-    if ( ! /^https?:\/\/pbs\.twimg\.com\/media\/[^:]+:\w*$/.test( url ) ) {
-        return true;
-    }
-    
-    suggest( {
-        filename : get_filename_from_image_url( url )
     } );
     return true;
 } // end of on_determining_filename()
@@ -553,76 +612,76 @@ function initialize( eventname ) {
     
     var title = chrome.i18n.getMessage( 'DOWNLOAD_ORIGINAL_IMAGE' );
     
-    update_context_menu_flags();
-    
-    if ( ! CONTEXT_MENU_IS_VISIBLE ) {
+    update_context_menu_flags()
+    .then( () => {
+        if ( ! CONTEXT_MENU_IS_VISIBLE ) {
+            if ( CONTEXT_MENU_INITIALIZED ) {
+                chrome.contextMenus.remove( DOWNLOAD_MENU_ID );
+                CONTEXT_MENU_INITIALIZED = false;
+            }
+            
+            log_debug( '*** initialize(): remove context menu' );
+            return;
+        }
+        
+        if ( CONTEXT_MENU_IS_SUSPENDED ) {
+            title += '[' + chrome.i18n.getMessage( 'UNDER_SUSPENSION' ) +']';
+        }
+        
         if ( CONTEXT_MENU_INITIALIZED ) {
-            chrome.contextMenus.remove( DOWNLOAD_MENU_ID );
-            CONTEXT_MENU_INITIALIZED = false;
+            chrome.contextMenus.update( DOWNLOAD_MENU_ID, {
+                title : title
+            } );
+            
+            log_debug( '*** initialize(): rename title to ', title );
+            return;
         }
         
-        log_debug( '*** initialize(): remove context menu' );
-        return;
-    }
-    
-    if ( CONTEXT_MENU_IS_SUSPENDED ) {
-        title += '[' + chrome.i18n.getMessage( 'UNDER_SUSPENSION' ) +']';
-    }
-    
-    if ( CONTEXT_MENU_INITIALIZED ) {
-        chrome.contextMenus.update( DOWNLOAD_MENU_ID, {
-            title : title
-        } );
+        CONTEXT_MENU_INITIALIZED = true;
         
-        log_debug( '*** initialize(): rename title to ', title );
-        return;
-    }
-    
-    CONTEXT_MENU_INITIALIZED = true;
-    
-    log_debug( '*** initialize(): completed' );
-    
-    /*
-    // TODO:
-    //   ときどき、ブラウザを再起動後等の状態で
-    //   Unchecked runtime.lastError while running contextMenus.create: Cannot create item with duplicate id download_image
-    //   が発生。
-    //   ※ chrome.contextMenus.removeAll() 後であっても発生してしまう。
-    //try {
-    //    chrome.contextMenus.create( {
-    //        type : 'normal'
-    //    ,   id : DOWNLOAD_MENU_ID
-    //    ,   title : title
-    //    ,   contexts : [ 'image' ]
-    //    ,   targetUrlPatterns : [ '*://pbs.twimg.com/media/*' ]
-    //    } );
-    //}
-    //catch( error ) {
-    //    // TODO: try～catch にも引っかからない模様
-    //    // 参考: [Issue 551912 - chromium - Try/Catch not working when trying to create existing menu](https://code.google.com/p/chromium/issues/detail?id=551912)
-    //    log_error( error );
-    //}
-    */
-    
-    chrome.contextMenus.remove( DOWNLOAD_MENU_ID, () => {
-        if ( chrome.runtime.lastError ) {
-            log_debug( '*** context menu does not exist ***' );
-        }
-        else {
-            log_debug( '*** removed existing context menu ***' );
-        }
+        log_debug( '*** initialize(): completed' );
         
-        chrome.contextMenus.create( {
-            type : 'normal'
-        ,   id : DOWNLOAD_MENU_ID
-        ,   title : title
-        ,   contexts : [ 'image' ]
-        ,   targetUrlPatterns : [ '*://pbs.twimg.com/media/*' ]
-        }, () => {
-            log_debug( '*** created context menu ***' );
+        /*
+        // TODO:
+        //   ときどき、ブラウザを再起動後等の状態で
+        //   Unchecked runtime.lastError while running contextMenus.create: Cannot create item with duplicate id download_image
+        //   が発生。
+        //   ※ chrome.contextMenus.removeAll() 後であっても発生してしまう。
+        //try {
+        //    chrome.contextMenus.create( {
+        //        type : 'normal'
+        //    ,   id : DOWNLOAD_MENU_ID
+        //    ,   title : title
+        //    ,   contexts : [ 'image' ]
+        //    ,   targetUrlPatterns : [ '*://pbs.twimg.com/media/*' ]
+        //    } );
+        //}
+        //catch( error ) {
+        //    // TODO: try～catch にも引っかからない模様
+        //    // 参考: [Issue 551912 - chromium - Try/Catch not working when trying to create existing menu](https://code.google.com/p/chromium/issues/detail?id=551912)
+        //    log_error( error );
+        //}
+        */
+        
+        chrome.contextMenus.remove( DOWNLOAD_MENU_ID, () => {
+            if ( chrome.runtime.lastError ) {
+                log_debug( '*** context menu does not exist ***' );
+            }
+            else {
+                log_debug( '*** removed existing context menu ***' );
+            }
+            
+            chrome.contextMenus.create( {
+                type : 'normal'
+            ,   id : DOWNLOAD_MENU_ID
+            ,   title : title
+            ,   contexts : [ 'image' ]
+            ,   targetUrlPatterns : [ '*://pbs.twimg.com/media/*' ]
+            }, () => {
+                log_debug( '*** created context menu ***' );
+            } );
         } );
     } );
-    
 } // end of initialize()
 
 
@@ -720,11 +779,22 @@ function on_message( message, sender, sendResponse ) {
                 names = [ names ];
             }
             
-            Array.apply( null, names ).forEach( function( name ) {
-                name = String( name );
-                response[ name ] = localStorage[ ( ( namespace ) ? ( String( namespace ) + '_' ) : '' ) + name ];
-            } );
-            break;
+            //Array.apply( null, names ).forEach( function( name ) {
+            //    name = String( name );
+            //    response[ name ] = localStorage[ ( ( namespace ) ? ( String( namespace ) + '_' ) : '' ) + name ];
+            //} );
+            //
+            //break;
+            
+            ( async () => {
+                for ( let name of [ ... names ] ) {
+                    name = String( name );
+                    response[ name ] = await get_value( ( ( namespace ) ? ( String( namespace ) + '_' ) : '' ) + name );
+                }
+                sendResponse( response );
+                log_debug( '*** GET_OPTIONS response:', response );
+            } )();
+            return true;
         
         case 'RESET_CONTEXT_MENU':
             initialize( 'onMessage' );
@@ -754,6 +824,10 @@ function on_message( message, sender, sendResponse ) {
                 CONTENT_TAB_INFOS[ tab_id ] = Object.assign( message.info, {
                     tab_id : tab_id,
                 } );
+                response = {
+                    tab_id,
+                    message,
+                }
             }
             log_debug( '=> CONTENT_TAB_INFOS', CONTENT_TAB_INFOS );
             break;
@@ -778,6 +852,7 @@ function on_message( message, sender, sendResponse ) {
             return true;
         
         default:
+            log_error( `Unsupported message: ${type}` );
             break;
     }
     
@@ -791,19 +866,21 @@ function on_message( message, sender, sendResponse ) {
 function on_click( info, tab ) {
     log_debug( '*** on_click():', info, tab );
     
-    update_context_menu_flags();
-    
-    if ( ( ! CONTEXT_MENU_IS_VISIBLE ) || CONTEXT_MENU_IS_SUSPENDED ) {
-        return;
-    }
-    
-    switch ( info.menuItemId ) {
-        case DOWNLOAD_MENU_ID :
-            download_image( info, tab );
-            break;
-        default :
-            break;
-    }
+    update_context_menu_flags()
+    .then( () => {
+        
+        if ( ( ! CONTEXT_MENU_IS_VISIBLE ) || CONTEXT_MENU_IS_SUSPENDED ) {
+            return;
+        }
+        
+        switch ( info.menuItemId ) {
+            case DOWNLOAD_MENU_ID :
+                download_image( info, tab );
+                break;
+            default :
+                break;
+        }
+    } );
 } // end of on_click()
 
 
@@ -849,6 +926,9 @@ if ( chrome.runtime.onStartup ) {
 // ※ダウンロード状態を監視して、ダウンロード用に開いたタブを閉じる
 chrome.downloads.onChanged.addListener( on_changed );
 
-} )( window, document );
+} )(
+    ( typeof window !== 'undefined' ? window : self ),
+    ( typeof document !== 'undefined' ? document : self.document )
+);
 
 // ■ end of file
