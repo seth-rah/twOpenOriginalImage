@@ -4,7 +4,7 @@
 // @namespace       http://furyu.hatenablog.com/
 // @author          furyu
 // @license         MIT
-// @version         0.1.8.20
+// @version         0.1.8.21
 // @include         http://twitter.com/*
 // @include         https://twitter.com/*
 // @include         https://mobile.twitter.com/*
@@ -862,8 +862,10 @@ function adjust_date_for_zip( date ) {
 function is_tweet_detail_on_react_twitter( tweet ) {
     //return ( tweet.getAttribute( 'data-testid' ) == 'tweetDetail' );
     // ※ [2019.08.07] article[data-testid="tweetDetail"] は無くなり、article[role="article"] に置き換わっている
-    return ! tweet.querySelector( 'a[role="link"][href^="/"][href*="/status/"] time' );
+    //return ! tweet.querySelector( 'a[role="link"][href^="/"][href*="/status/"] time' );
     // ※ TODO: 個別ツイートを判別方法要検討（暫定的に、個別ツイートへのリンク(タイムスタンプ)有無で判定）
+    return !! tweet.querySelector('a[role="link"][href*="/status/"] ~ a[role="link"][href*="/help.twitter.com/"]');
+    // [2022.09] 個別ツイートでも 'a[role="link"][href^="/"][href*="/status/"] time' でマッチするようになったため、判定方法変更
 } // end of is_tweet_detail_on_react_twitter()
 
 
@@ -875,7 +877,8 @@ function get_tweet_link_on_react_twitter( tweet ) {
         tweet_link = search_ancestor_by_attribute( timestamp_container, 'role', 'link' );
     }
     
-    if ( ! tweet_link ) {
+    if ( ( ! tweet_link ) || is_tweet_detail_on_react_twitter( tweet ) ) {
+        tweet_link = null;
         // ※個別ツイートを表示した場合、自身へのリンクが無い→ページのURLをhrefに持つリンクをダミーで作成し、ツイートソースラベルの前に挿入
         var tweet_url = w.location.href.replace( /[?#].*/g, '' ),
             tweet_source_label = tweet.querySelector( 'a[role="link"][href*="/help.twitter.com/"]' );
