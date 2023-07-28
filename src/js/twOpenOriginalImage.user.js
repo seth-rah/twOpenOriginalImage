@@ -682,23 +682,21 @@ function remove_event() {
     return event_functions.bind_object( this ).remove_event.apply( event_functions, arguments );
 } // end of add_event()
 
-
+// refactor needed
 function get_url_info(url) {
-  // For the sake of network requests, this workaround will only support jpg and png
-  const extension_list = ['jpg', 'png'];
+  const extension_list = ['jpg', 'png', 'gif', 'webp', 'jpeg'];
   let found_extension = null; // initialize variable to store extension value
 
   for (const extension of extension_list) {
     if (found_extension) break; // skip if extension already found
     const modifiedUrl = url.replace(/^(.*)(\?format=[^&]+.*)$/, `$1?format=${extension}&name=orig`);
 
+    // bug exists where this function causes the overlay to not work for all images. investgation needed
     const request = new XMLHttpRequest();
-    try {
-      request.open('HEAD', modifiedUrl, false); // Make the request synchronous
-      request.send(null);
-    } catch (error) {}
+    request.open('HEAD', modifiedUrl, false); // Make the request synchronous
+    request.send(null);
 
-    if (request.status === 200) {
+    if (request.status >= 200 && request.status < 300) {
       found_extension = extension; // store extension value when found
       url = url.replace(/^(.*?)(\.\w+)(.*?format=)([^&]+)(\&.*name=)(\w+)(&.*)?$/, `$1$2$3${found_extension}$5$6`); // update the URL
       String(url)
@@ -3580,7 +3578,7 @@ function initialize( user_options ) {
                 var img_objects = [];
                 
                 if ( is_react_twitter() ) {
-                    img_objects = to_array( container.querySelectorAll( 'div[aria-label] > img[src*="//pbs.twimg.com/media/"]' ) ).filter( ( img_object ) => {
+                    img_objects = to_array( container.querySelectorAll('div[aria-label] > img[src*="//pbs.twimg.com/media/"]:not([class*="_touched"]):not([src*="name=120"]):not([src*="name=240"])') ).filter( ( img_object ) => {
                         if ( OPTIONS.SHOW_IMAGES_OF_QUOTE_TWEET ) {
                             return true;
                         }
@@ -3603,7 +3601,7 @@ function initialize( user_options ) {
                     } );
                 }
                 else {
-                    img_objects = to_array( container.querySelectorAll( '.AdaptiveMedia-photoContainer img, a.js-media-image-link img.media-img, div.js-media > div:not(.is-video) a.js-media-image-link[rel="mediaPreview"], .QuoteTweet .js-quote-photo > img' ) ).filter( ( img_object ) => {
+                    img_objects = to_array( container.querySelectorAll( '.AdaptiveMedia-photoContainer img, a.js-media-image-link img.media-img, div.js-media > div:not(.is-video) a.js-media-image-link[rel="mediaPreview"], .QuoteTweet .js-quote-photo > img:not([class*="_touched"]):not([src*="name=120"]):not([src*="name=240"])' ) ).filter( ( img_object ) => {
                         if ( OPTIONS.SHOW_IMAGES_OF_QUOTE_TWEET ) {
                             return true;
                         }
@@ -3960,7 +3958,11 @@ function initialize( user_options ) {
                     function remove_image_events( event ) {
                         remove_event( img, 'remove-image-events', remove_image_events );
                         remove_event( img, 'click', open_target_image );
-                        img.classList.remove( SCRIPT_NAME + '_touched' );
+                        // band aid to stop network requests from flooding the browser
+                        // bug exists in this logic that removes the tag when it should still be present.
+                        // Either that or the tag is kept in places when it should have been removed.
+                        // Not too sure what the original intent was.
+                        // img.classList.remove( SCRIPT_NAME + '_touched' );
                     } // end of remove_image_events()
                     
                     
