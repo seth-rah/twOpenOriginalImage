@@ -683,23 +683,44 @@ function remove_event() {
 } // end of add_event()
 
 
-function get_url_info( url ) {
-    // [注意] url は https?:// 以外（画像ファイル名など）の場合あり（※その場合はnew URL(url)とするとエラー発生）
-    var url_parts = url.split( '?' ),
-        query_map = {},
-        url_info = { base_url : url_parts[ 0 ], query_map : query_map };
-    
-    if ( url_parts.length < 2 ) {
-        return url_info;
+function get_url_info(url) {
+  // For the sake of network requests, this workaround will only support jpg and png
+  const extension_list = ['jpg', 'png'];
+  let found_extension = null; // initialize variable to store extension value
+
+  for (const extension of extension_list) {
+    if (found_extension) break; // skip if extension already found
+    const modifiedUrl = url.replace(/^(.*)(\?format=[^&]+.*)$/, `$1?format=${extension}&name=orig`);
+
+    const request = new XMLHttpRequest();
+    try {
+      request.open('HEAD', modifiedUrl, false); // Make the request synchronous
+      request.send(null);
+    } catch (error) {}
+
+    if (request.status === 200) {
+      found_extension = extension; // store extension value when found
+      url = url.replace(/^(.*?)(\.\w+)(.*?format=)([^&]+)(\&.*name=)(\w+)(&.*)?$/, `$1$2$3${found_extension}$5$6`); // update the URL
+      String(url)
     }
-    
-    url_parts[ 1 ].split( '&' ).forEach( function ( query_part ) {
-        var parts = query_part.split( '=' );
-        
-        query_map[ parts[ 0 ] ] = ( parts.length < 2 ) ? '' : parts[ 1 ];
-    } );
-    
+  }
+
+  // [注意] url は https?:// 以外（画像ファイル名など）の場合あり（※その場合はnew URL(url)とするとエラー発生）
+  var url_parts = url.split('?'),
+    query_map = {},
+    url_info = { base_url: url_parts[0], query_map: query_map };
+
+  if (url_parts.length < 2) {
     return url_info;
+  }
+
+  url_parts[1].split('&').forEach(function (query_part) {
+    var parts = query_part.split('=');
+
+    query_map[parts[0]] = parts.length < 2 ? '' : parts[1];
+  });
+
+  return url_info;
 } // end of get_url_info()
 
 
