@@ -3578,7 +3578,7 @@ function initialize( user_options ) {
                 var img_objects = [];
                 
                 if ( is_react_twitter() ) {
-                    img_objects = to_array( container.querySelectorAll('div[aria-label] > img[src*="//pbs.twimg.com/media/"]:not([class*="_touched"]):not([src*="name=120"]):not([src*="name=240"])') ).filter( ( img_object ) => {
+                    img_objects = to_array( container.querySelectorAll('div[aria-label*="Timeline"] div[aria-label] > img[src*="//pbs.twimg.com/media/"]:not([class*="_touched"])') ).filter( ( img_object ) => {
                         if ( OPTIONS.SHOW_IMAGES_OF_QUOTE_TWEET ) {
                             return true;
                         }
@@ -3601,7 +3601,7 @@ function initialize( user_options ) {
                     } );
                 }
                 else {
-                    img_objects = to_array( container.querySelectorAll( '.AdaptiveMedia-photoContainer img, a.js-media-image-link img.media-img, div.js-media > div:not(.is-video) a.js-media-image-link[rel="mediaPreview"], .QuoteTweet .js-quote-photo > img:not([class*="_touched"]):not([src*="name=120"]):not([src*="name=240"])' ) ).filter( ( img_object ) => {
+                    img_objects = to_array( container.querySelectorAll( '.AdaptiveMedia-photoContainer img, a.js-media-image-link img.media-img, div.js-media > div:not(.is-video) a.js-media-image-link[rel="mediaPreview"], .QuoteTweet .js-quote-photo > img:not([class*="_touched"])' ) ).filter( ( img_object ) => {
                         if ( OPTIONS.SHOW_IMAGES_OF_QUOTE_TWEET ) {
                             return true;
                         }
