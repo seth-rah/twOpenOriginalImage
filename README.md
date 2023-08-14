@@ -1,3 +1,11 @@
+This was a fork to temporarily fix an issue with the plugin as a band aid solution using some bad code because I was too lazy to refactor the entire codebase.
+
+https://github.com/seth-rah/twOpenOriginalImage/tree/query-image-address
+
+The project will be archived as it's no longer needed since the original repo updated
+
+
+
 Twitter 原寸びゅー (twOpenOriginalImage)
 ========================================
 
